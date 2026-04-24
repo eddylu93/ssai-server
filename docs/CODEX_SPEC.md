@@ -4694,7 +4694,7 @@ milestone_p0_walking_skeleton:
       desc: "Rust/Axum + PG + systemd 部署骨架"
       deliverables:
         - "GET /health 返回 {status:'ok', version}"
-        - "ks_accounts / ks_reports / ks_oauth_states 三表建成"
+        - "ks_accounts / metric_snapshots / oauth_state 三表建成"
       ref: "§37, §41.1"
 
     T02_oauth_flow:
