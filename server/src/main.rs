@@ -1,4 +1,5 @@
 use anyhow::Context;
+use axum::http::Method;
 use sqlx::migrate;
 use ssai_server::{
     auth::bootstrap::bootstrap_admin_user, config::Config, scheduler, state::AppState,
@@ -6,6 +7,7 @@ use ssai_server::{
 use tokio::{net::TcpListener, signal};
 use tower_http::{
     compression::CompressionLayer,
+    cors::{Any, CorsLayer},
     timeout::TimeoutLayer,
     trace::{DefaultMakeSpan, DefaultOnResponse, TraceLayer},
 };
@@ -30,7 +32,19 @@ async fn main() -> anyhow::Result<()> {
     bootstrap_admin_user(&state).await?;
     let mut scheduler = scheduler::spawn_all(&state).await?;
 
+    let cors = CorsLayer::new()
+        .allow_origin(Any)
+        .allow_methods([
+            Method::GET,
+            Method::POST,
+            Method::PUT,
+            Method::DELETE,
+            Method::OPTIONS,
+        ])
+        .allow_headers(Any);
+
     let app = ssai_server::api::router(state)
+        .layer(cors)
         .layer(
             TraceLayer::new_for_http()
                 .make_span_with(DefaultMakeSpan::new().level(Level::INFO))
