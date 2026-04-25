@@ -24,3 +24,4 @@ logs/
 # 数据库备份
 *.sql.gz
 backups/
+/server/target/
