@@ -1,6 +1,8 @@
 use serde::de::DeserializeOwned;
 use serde::Deserialize;
 
+pub const ACCESS_TOKEN_HEADER: &str = "Access-Token";
+
 #[derive(Debug, Deserialize)]
 pub struct ApiEnvelope<T> {
     pub code: i64,
@@ -27,7 +29,7 @@ pub fn decode_envelope<T: DeserializeOwned>(body: &str) -> Result<T, KsError> {
     let env: ApiEnvelope<T> = serde_json::from_str(body).map_err(|_| KsError::Decode)?;
 
     match env.code {
-        0 => env.data.ok_or(KsError::Decode),
+        0 | 1 => env.data.ok_or(KsError::Decode),
         40001 => Err(KsError::TokenExpired),
         40029 => Err(KsError::RateLimited),
         50000 => Err(KsError::UpstreamServer),

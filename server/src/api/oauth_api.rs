@@ -40,7 +40,7 @@ pub async fn callback(
 ) -> Result<Html<&'static str>, AppError> {
     let consumed = token_store::consume_oauth_state(&state, &query.state).await?;
     let token_bundle = oauth::exchange_access_token(&state, &query.code).await?;
-    let advertisers = oauth::fetch_account_info(&state, &token_bundle.access_token).await?;
+    let advertisers = oauth::fetch_authorized_accounts(&state, &token_bundle).await?;
 
     token_store::upsert_accounts(&state, consumed.user_id, &token_bundle, &advertisers).await?;
 

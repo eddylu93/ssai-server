@@ -108,7 +108,8 @@ async fn refresh_token_handler(State(state): State<MockState>) -> Json<serde_jso
         "data": {
             "access_token": "new-access-token",
             "refresh_token": "new-refresh-token",
-            "expires_in": 86400,
+            "access_token_expires_in": 86400,
+            "advertiser_id": 91207261,
             "refresh_token_expires_in": 2592000
         }
     }))

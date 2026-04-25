@@ -68,7 +68,7 @@ async fn run_once_writes_metric_snapshots() {
     let account_id = common::insert_ks_account_with_tokens(
         &state,
         user_id,
-        "adv-unit",
+        "91207261",
         "valid-access",
         "valid-refresh",
     )
@@ -88,7 +88,7 @@ async fn run_once_writes_metric_snapshots() {
     .expect("snapshot");
 
     assert_eq!(row.get::<String, _>("level"), "unit");
-    assert_eq!(row.get::<String, _>("ref_id"), "unit-1");
+    assert_eq!(row.get::<String, _>("ref_id"), "10001");
     assert_eq!(row.get::<f64, _>("cost"), 12.5);
     assert_eq!(row.get::<i64, _>("impressions"), 1000);
     assert_eq!(row.get::<i64, _>("clicks"), 30);
@@ -120,7 +120,7 @@ async fn run_once_refreshes_on_401_and_retries_successfully() {
     let account_id = common::insert_ks_account_with_tokens(
         &state,
         user_id,
-        "adv-retry",
+        "91207262",
         "expired-access",
         "old-refresh",
     )
@@ -162,7 +162,7 @@ async fn run_once_refreshes_on_401_and_retries_successfully() {
 
 async fn start_mock_server(mock_state: MockState) -> String {
     let app = Router::new()
-        .route("/v2/report/unit_report", post(unit_report_handler))
+        .route("/v1/report/unit_report", post(unit_report_handler))
         .route(
             "/oauth2/authorize/refresh_token",
             post(refresh_token_handler),
@@ -212,7 +212,8 @@ async fn refresh_token_handler(State(state): State<MockState>) -> Json<serde_jso
         "data": {
             "access_token": "new-access-token",
             "refresh_token": "new-refresh-token",
-            "expires_in": 86400,
+            "access_token_expires_in": 86400,
+            "advertiser_id": 91207261,
             "refresh_token_expires_in": 2592000
         }
     }))
@@ -222,22 +223,22 @@ fn success_report_response() -> serde_json::Value {
     Json(json!({
         "code": 0,
         "message": "ok",
-        "data": [
-            {
-                "level": "unit",
-                "ref_id": "unit-1",
-                "snapshot_at": chrono::Utc::now(),
-                "cost": 12.5,
-                "impressions": 1000,
-                "clicks": 30,
-                "conversions": 3,
-                "revenue": 99.9,
-                "roi": 7.99,
-                "ctr": 0.03,
-                "cvr": 0.1,
-                "cpa": 4.17
-            }
-        ]
+        "data": {
+            "total_count": 1,
+            "details": [
+                {
+                    "charge": 12.5,
+                    "show": 1000,
+                    "photo_click": 30,
+                    "photo_click_ratio": 0.03,
+                    "form_count": 3,
+                    "event_pay_purchase_amount": 99.9,
+                    "event_pay_roi": 7.99,
+                    "form_cost": 4.17,
+                    "unit_id": 10001
+                }
+            ]
+        }
     }))
     .0
 }
