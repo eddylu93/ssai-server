@@ -24,3 +24,12 @@ logs/
 # 数据库备份
 *.sql.gz
 backups/
+
+# Rust
+target/
+**/*.rs.bk
+.cargo-home/
+
+# Env (server only — never commit real secrets)
+.env
+server/.env
