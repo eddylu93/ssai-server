@@ -1,24 +1,15 @@
-mod api;
-mod auth;
-mod config;
-mod crypto;
-mod error;
-mod kuaishou;
-mod state;
-
 use anyhow::Context;
-use auth::bootstrap::bootstrap_admin_user;
-use config::Config;
 use sqlx::migrate;
-use tokio::net::TcpListener;
+use ssai_server::{
+    auth::bootstrap::bootstrap_admin_user, config::Config, scheduler, state::AppState,
+};
+use tokio::{net::TcpListener, signal};
 use tower_http::{
     compression::CompressionLayer,
     timeout::TimeoutLayer,
     trace::{DefaultMakeSpan, DefaultOnResponse, TraceLayer},
 };
 use tracing::Level;
-
-use crate::state::AppState;
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
@@ -37,8 +28,9 @@ async fn main() -> anyhow::Result<()> {
         .context("failed to run migrations")?;
 
     bootstrap_admin_user(&state).await?;
+    let mut scheduler = scheduler::spawn_all(&state).await?;
 
-    let app = api::router(state)
+    let app = ssai_server::api::router(state)
         .layer(
             TraceLayer::new_for_http()
                 .make_span_with(DefaultMakeSpan::new().level(Level::INFO))
@@ -55,8 +47,16 @@ async fn main() -> anyhow::Result<()> {
     tracing::info!(bind_addr = %local_addr, version = %config.version, "ssai-server listening");
 
     axum::serve(listener, app)
+        .with_graceful_shutdown(shutdown_signal())
         .await
-        .context("axum server exited unexpectedly")
+        .context("axum server exited unexpectedly")?;
+
+    scheduler
+        .shutdown()
+        .await
+        .context("failed to shutdown scheduler")?;
+
+    Ok(())
 }
 
 fn init_tracing(config: &Config) -> anyhow::Result<()> {
@@ -78,4 +78,8 @@ fn init_tracing(config: &Config) -> anyhow::Result<()> {
     }
 
     Ok(())
+}
+
+async fn shutdown_signal() {
+    let _ = signal::ctrl_c().await;
 }

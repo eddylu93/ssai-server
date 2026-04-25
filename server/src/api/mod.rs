@@ -1,3 +1,4 @@
+pub mod advertiser_api;
 pub mod health_api;
 pub mod oauth_api;
 
@@ -13,5 +14,10 @@ pub fn router(state: AppState) -> Router {
             get(oauth_api::authorize).post(oauth_api::authorize),
         )
         .route("/api/kuaishou/oauth/callback", get(oauth_api::callback))
+        .route("/api/advertisers", get(advertiser_api::list_advertisers))
+        .route(
+            "/api/advertisers/:advertiser_id/snapshot/latest",
+            get(advertiser_api::latest_snapshot),
+        )
         .with_state(state)
 }

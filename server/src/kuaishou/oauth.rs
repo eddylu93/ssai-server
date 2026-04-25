@@ -42,6 +42,13 @@ struct AccessTokenRequest<'a> {
     auth_code: &'a str,
 }
 
+#[derive(Debug, Serialize)]
+struct RefreshTokenRequest<'a> {
+    app_id: &'a str,
+    secret: &'a str,
+    refresh_token: &'a str,
+}
+
 #[derive(Debug, Deserialize)]
 struct AccountInfoResponse {
     advertiser_id: Option<String>,
@@ -67,32 +74,33 @@ pub async fn exchange_access_token(
     state: &AppState,
     auth_code: &str,
 ) -> Result<TokenBundle, AppError> {
-    let url = format!("{}/oauth2/authorize/access_token", state.config.ks_base_url);
-    let response = state
-        .http
-        .post(url)
-        .json(&AccessTokenRequest {
+    let decoded = request_token_bundle(
+        state,
+        "/oauth2/authorize/access_token",
+        &AccessTokenRequest {
             app_id: &state.config.ks_app_id,
             secret: &state.config.ks_app_secret,
             auth_code,
-        })
-        .send()
-        .await
-        .map_err(|_| AppError::ServiceUnavailable("kuaishou_transport_error"))?;
+        },
+    )
+    .await?;
 
-    let body = response
-        .text()
-        .await
-        .map_err(|_| AppError::ServiceUnavailable("kuaishou_transport_error"))?;
+    Ok(to_token_bundle(decoded))
+}
 
-    let decoded: TokenResponse = decode_envelope(&body).map_err(map_ks_error)?;
+pub async fn refresh_token(state: &AppState, refresh_token: &str) -> Result<TokenBundle, AppError> {
+    let decoded = request_token_bundle(
+        state,
+        "/oauth2/authorize/refresh_token",
+        &RefreshTokenRequest {
+            app_id: &state.config.ks_app_id,
+            secret: &state.config.ks_app_secret,
+            refresh_token,
+        },
+    )
+    .await?;
 
-    Ok(TokenBundle {
-        access_token: decoded.access_token,
-        refresh_token: decoded.refresh_token,
-        access_expires_at: Utc::now() + Duration::seconds(decoded.expires_in),
-        refresh_expires_at: Utc::now() + Duration::seconds(decoded.refresh_token_expires_in),
-    })
+    Ok(to_token_bundle(decoded))
 }
 
 pub async fn fetch_account_info(
@@ -146,5 +154,35 @@ fn map_ks_error(error: KsError) -> AppError {
         KsError::UpstreamServer => AppError::ServiceUnavailable("kuaishou_upstream_server"),
         KsError::Business => AppError::BadRequest("kuaishou_business_error"),
         KsError::Decode => AppError::ServiceUnavailable("kuaishou_decode_error"),
+    }
+}
+
+async fn request_token_bundle<T: Serialize>(
+    state: &AppState,
+    path: &str,
+    body: &T,
+) -> Result<TokenResponse, AppError> {
+    let response = state
+        .http
+        .post(format!("{}{}", state.config.ks_base_url, path))
+        .json(body)
+        .send()
+        .await
+        .map_err(|_| AppError::ServiceUnavailable("kuaishou_transport_error"))?;
+
+    let body = response
+        .text()
+        .await
+        .map_err(|_| AppError::ServiceUnavailable("kuaishou_transport_error"))?;
+
+    decode_envelope(&body).map_err(map_ks_error)
+}
+
+fn to_token_bundle(decoded: TokenResponse) -> TokenBundle {
+    TokenBundle {
+        access_token: decoded.access_token,
+        refresh_token: decoded.refresh_token,
+        access_expires_at: Utc::now() + Duration::seconds(decoded.expires_in),
+        refresh_expires_at: Utc::now() + Duration::seconds(decoded.refresh_token_expires_in),
     }
 }
