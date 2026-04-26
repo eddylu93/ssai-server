@@ -19,7 +19,7 @@ pub struct AuthorizeResponse {
 
 #[derive(Debug, Deserialize)]
 pub struct CallbackQuery {
-    code: String,
+    auth_code: String,
     state: String,
 }
 
@@ -39,7 +39,7 @@ pub async fn callback(
     Query(query): Query<CallbackQuery>,
 ) -> Result<Html<&'static str>, AppError> {
     let consumed = token_store::consume_oauth_state(&state, &query.state).await?;
-    let token_bundle = oauth::exchange_access_token(&state, &query.code).await?;
+    let token_bundle = oauth::exchange_access_token(&state, &query.auth_code).await?;
     let advertisers = oauth::fetch_authorized_accounts(&state, &token_bundle).await?;
 
     token_store::upsert_accounts(&state, consumed.user_id, &token_bundle, &advertisers).await?;
